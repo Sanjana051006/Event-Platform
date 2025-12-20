@@ -115,10 +115,12 @@ const EventCard = memo(function EventCard({ event }) {
       {/* Event Banner */}
       <div className="w-full h-48 bg-brand-gradient relative">
         {event.banner_url ? (
-          <img
+          <Image
             src={event.banner_url}
             alt={event.title}
+            fill
             className="w-full h-full object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             loading="lazy"
           />
         ) : (
@@ -128,7 +130,7 @@ const EventCard = memo(function EventCard({ event }) {
         )}
         
         {/* NEW: Event Type Badge (Top Left) */}
-        <div className="absolute top-2 left-2">
+        <div className="absolute top-2 left-2 z-10">
             <Badge className="bg-white/90 text-black hover:bg-white/75 shadow-sm backdrop-blur-sm capitalize">
               {eventType}
             </Badge>
@@ -136,7 +138,7 @@ const EventCard = memo(function EventCard({ event }) {
 
         {/* Status Badge (Top Right) */}
         <span 
-          className={`absolute top-2 right-2 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1.5 ${status.color}`}
+          className={`absolute top-2 right-2 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1.5 ${status.color} z-10`}
         >
           {status.icon}
           {status.text}
@@ -165,12 +167,15 @@ const EventCard = memo(function EventCard({ event }) {
         {/* Club Info */}
         {club && club.club_name && (
           <div className="flex items-center gap-2 w-full pt-4 border-t border-border">
-            <img 
-              src={club.club_logo_url || 'https://via.placeholder.com/40'} 
-              alt={`${club.club_name} logo`}
-              className="w-8 h-8 rounded-full object-contain border border-border"
-              loading="lazy"
-            />
+            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-border">
+               <Image 
+                src={club.club_logo_url || 'https://via.placeholder.com/40'} 
+                alt={`${club.club_name} logo`}
+                fill
+                className="object-contain"
+                sizes="32px"
+              />
+            </div>
             <span className="text-sm font-medium text-gray-300">{club.club_name}</span>
           </div>
         )}

@@ -14,7 +14,139 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     minimumCacheTTL: 60,
-    domains: [], // Add your image domains here if using external images
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co', // Use wildcard to match any supabase project
+      },
+      {
+        protocol: 'https',
+         hostname: 'via.placeholder.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.googleusercontent.com', 
+      },
+      {
+        protocol: 'https',
+        hostname: '*.shutterstock.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'image.shutterstock.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.vectorstock.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.vectorstock.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.vecteezy.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'static.vecteezy.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.freepik.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 't4.ftcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'static.ftcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.freepik.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 't4.ftcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'static.ftcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.freepik.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 't4.ftcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'static.ftcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.freepik.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 't4.ftcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'static.ftcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+      },{
+        protocol: 'https',
+        hostname: 'cdngbp.circleone.in',
+      }
+    ],
   },
   webpack(config, { dev }) {
     if (dev) {

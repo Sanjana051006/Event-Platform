@@ -164,8 +164,9 @@ function EventsPageContent({ initialEvents, clubs }) {
       </AnimatePresence>
 
 
-      {/* Events Grid */}
-      <div className="relative min-h-[400px]">
+
+        {/* Events Grid */}
+        <div className="relative min-h-[400px]">
         {/* Loading Overlay */}
         {isPending && (
             <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-50 flex items-start justify-center pt-20 transition-all duration-300">
@@ -179,7 +180,7 @@ function EventsPageContent({ initialEvents, clubs }) {
         {initialEvents.length > 0 ? (
             <motion.div 
                 variants={container}
-                initial="hidden"
+                initial="show"
                 animate="show"
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 key={JSON.stringify(initialEvents.map(e => e.id))} // Re-trigger staggering on data change

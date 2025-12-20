@@ -8,7 +8,9 @@ export const metadata = {
   description: 'Discover and manage hackathons, workshops, and tech events from all clubs on campus.',
 };
 
-export const revalidate = 0;
+// [OPTIMIZED] Enable ISR (Incremental Static Regeneration)
+// Revalidate this page every 60 seconds. This prevents hitting the DB on every request.
+export const revalidate = 60;
 
 export default async function Home() {
   // Use supabaseAdmin to bypass RLS for fetching public club data
@@ -16,48 +18,29 @@ export default async function Home() {
   const supabase = supabaseAdmin || createClient();
 
   // 1. Parallel Fetching for Performance
-  const eventsPromise = supabase
-    .from('events')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
+  // [OPTIMIZED] Use RPC 'get_upcoming_events' to filter data on the database side
+  // This drastically reduces data transfer and avoids "N+1" style client-side filtering
+  const eventsPromise = supabase.rpc('get_upcoming_events', { limit_count: 3 });
 
   // Use RPC to bypass RLS for fetching public club data
   const clubsPromise = supabase.rpc('get_public_clubs');
 
   const [eventsResult, clubsResult] = await Promise.all([eventsPromise, clubsPromise]);
 
-  const eventsData = eventsResult.data || [];
+  const rawEvents = eventsResult.data || [];
   const clubsData = clubsResult.data || [];
 
-  // 2. Map Clubs to Events (Manual Join)
-  // This resolves the issue where 'created_by' references auth.users, not admin_users
-  const clubMap = new Map(clubsData.map(c => [c.user_id, c]));
-
-  const enrichedEvents = eventsData.map(event => ({
+  // 2. Map Events to Structure Expected by Client
+  // The RPC returns flat club data, but EventCard expects a nested 'club' object
+  const upcomingEvents = rawEvents.map(event => ({
     ...event,
-    club: clubMap.get(event.created_by) || null
+    club: {
+      club_name: event.club_name,
+      club_logo_url: event.club_logo_url
+    }
   }));
 
-  // 3. Filter Upcoming/Open Events
-  const now = new Date();
-  
-  const upcomingEvents = enrichedEvents.filter((event) => {
-    // Must be active and open for registration
-    if (!event.is_active || !event.registration_open) return false;
-
-    // Check completion (if end date exists)
-    const eventEnd = event.event_end_date ? parseISO(event.event_end_date) : null;
-    if (eventEnd && now > eventEnd) return false;
-
-    // Check registration start (if start date exists)
-    const regStart = event.registration_start ? parseISO(event.registration_start) : null;
-    if (regStart && now < regStart) return false;
-
-    return true;
-  }).slice(0, 3); // Take top 3
-
-  // 4. Uniquify Clubs for the "Browse by Club" section
+  // 3. Uniquify Clubs for the "Browse by Club" section
   // Filter out duplicates based on club_name
   const uniqueClubs = [
       ...new Map(clubsData.map((club) => [club.club_name, club])).values()

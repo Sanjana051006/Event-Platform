@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
@@ -166,11 +167,15 @@ export default function HomeClient({ upcomingEvents = [], clubs = [] }) {
                   >
                     <Card className="h-full hover:shadow-xl bg-background hover:bg-zinc-900 transition-shadow duration-300">
                       <CardContent className="pt-6 text-center flex flex-col items-center">
-                        <img
-                          src={club.club_logo_url}
-                          alt={club.club_name}
-                          className="w-24 h-24 object-contain rounded-full mb-4 border-2 border-border group-hover:border-brand-orange transition-colors"
-                        />
+                        <div className="relative w-24 h-24 mb-4">
+                          <Image
+                            src={club.club_logo_url}
+                            alt={club.club_name}
+                            fill
+                            className="object-contain rounded-full border-2 border-border group-hover:border-brand-orange transition-colors"
+                            sizes="(max-width: 768px) 100px, 100px"
+                          />
+                        </div>
                         <h3 className="text-md text-gray-100 font-semibold group-hover:text-brand-orange transition-colors">
                           {club.club_name}
                         </h3>

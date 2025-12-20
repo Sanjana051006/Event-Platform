@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import EventClient from './EventClient';
 
+export const revalidate = 60; // [OPTIMIZED] Cache this page for 60 seconds
+
 export default async function EventPage({ params }) {
   const supabase = createClient();
   

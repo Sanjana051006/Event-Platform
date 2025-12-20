@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { sendAdminNotification, sendContactEmailToAdmin } from "@/lib/email";
+import { sendContactEmailToAdmin } from "@/lib/email";
 import { jwtVerify } from "jose"; // [FIX] Efficient Auth
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -802,24 +802,7 @@ export async function POST(request) {
       console.log(`[Participants API] Registration successful. ID: ${data?.id}`);
 
 
-      // Email Logic (Async)
-      (async () => {
-        try {
-            const { data: eventData } = await supabaseAdmin.from("events").select("title, created_by").eq("id", body.event_id).single();
-            if (eventData?.created_by) {
-                const { data: { user: adminUser } } = await supabaseAdmin.auth.admin.getUserById(eventData.created_by);
-                if (adminUser?.email) {
-                    await sendAdminNotification({
-                        to: adminUser.email,
-                        adminName: adminUser.user_metadata?.name || adminUser.email,
-                        eventTitle: eventData.title,
-                        participantName: body.responses?.["Name"] || "Participant",
-                        participantEmail: body.responses?.["Email"] || "N/A",
-                    });
-                }
-            }
-        } catch (e) { console.error("Email Error", e); }
-      })();
+
 
       return NextResponse.json(
         { success: true, participant: data },

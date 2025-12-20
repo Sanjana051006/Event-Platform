@@ -18,7 +18,7 @@ export const viewport = {
 export const metadata = {
   title: "EventX - College Event Platform",
   description: "Join us for amazing hackathons and technical events from all clubs",
-  manifest: '/site.webmanifest', 
+  manifest: '/manifest.json', 
   // 2. Add Apple-specific PWA settings here
   appleWebApp: {
     capable: true,
