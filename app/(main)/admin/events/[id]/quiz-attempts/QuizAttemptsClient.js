@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, FileText, Eye, Users, Trophy, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import { motion } from 'framer-motion'
-import { LastWordGradientText } from '@/components/GradientText'
+import LastWordGradientText from '@/components/LastWordGradientText'
 
 // ============================================================================
 // Stats Card Component
