@@ -17,6 +17,7 @@ export async function POST(request) {
       eventId,
       userId,
       responses,
+      userDetails,
     } = await request.json();
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
