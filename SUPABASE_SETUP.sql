@@ -32,10 +32,13 @@ CREATE TABLE IF NOT EXISTS events (
     submission_start TIMESTAMP WITH TIME ZONE,
     submission_end TIMESTAMP WITH TIME ZONE,
     submission_form_fields JSONB DEFAULT '[]'::jsonb,
+    gallery_images TEXT[] DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
+
+COMMENT ON COLUMN events.gallery_images IS 'Array of public image URLs for the event gallery';
 
 -- B. Problem Statements Table
 CREATE TABLE IF NOT EXISTS problem_statements (
@@ -115,10 +118,12 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     event_id UUID REFERENCES events(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    score INTEGER NOT NULL,
+    score INTEGER, -- Nullable for in-progress
     answers JSONB NOT NULL, -- Map of question_id -> selected_option_index
+    status TEXT DEFAULT 'in_progress',
+    marked_for_review JSONB DEFAULT '[]'::jsonb,
     started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    completed_at TIMESTAMP WITH TIME ZONE -- Nullable, no default
 );
 
 -- ====================================================================
@@ -203,6 +208,171 @@ AS $$
   GROUP BY event_id;
 $$;
 
+-- [NEW] Function to safely fetch public club details (bypassing RLS)
+CREATE OR REPLACE FUNCTION get_public_clubs()
+RETURNS TABLE (
+  user_id UUID,
+  club_name TEXT,
+  club_logo_url TEXT
+) 
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    au.user_id, 
+    au.club_name, 
+    au.club_logo_url
+  FROM admin_users au
+  WHERE au.club_name IS NOT NULL;
+END;
+$$;
+
+-- [NEW] Advanced Event Search & Filtering
+CREATE OR REPLACE FUNCTION search_events(
+    search_term TEXT DEFAULT '',
+    filter_status TEXT DEFAULT 'all',  -- 'all', 'open', 'active', 'completed'
+    club_name_filter TEXT DEFAULT '',
+    limit_count INTEGER DEFAULT 50,
+    offset_count INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+    id UUID,
+    title TEXT,
+    description TEXT,
+    banner_url TEXT,
+    event_date TIMESTAMP WITH TIME ZONE,
+    event_end_date TIMESTAMP WITH TIME ZONE,
+    event_type TEXT,
+    registration_open BOOLEAN,
+    is_active BOOLEAN,
+    registration_start TIMESTAMP WITH TIME ZONE,
+    registration_end TIMESTAMP WITH TIME ZONE,
+    created_by UUID,
+    club_name TEXT,     
+    club_logo_url TEXT  
+) 
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        e.id,
+        e.title,
+        e.description,
+        e.banner_url,
+        e.event_date,
+        e.event_end_date,
+        e.event_type,
+        e.registration_open,
+        e.is_active,
+        e.registration_start,
+        e.registration_end,
+        e.created_by,
+        au.club_name,
+        au.club_logo_url
+    FROM events e
+    LEFT JOIN admin_users au ON e.created_by = au.user_id
+    WHERE 
+        -- 1. Search Term (Title or Description)
+        (search_term IS NULL OR length(search_term) = 0 OR 
+         e.title ILIKE '%' || search_term || '%' OR 
+         e.description ILIKE '%' || search_term || '%')
+         
+        AND
+        
+        -- 2. Club Filter (Partial Match on Club Name)
+        (club_name_filter IS NULL OR length(club_name_filter) = 0 OR
+         au.club_name ILIKE '%' || club_name_filter || '%')
+         
+        AND
+        
+        -- 3. Status Filter
+        (
+            CASE 
+                WHEN filter_status = 'all' THEN 
+                    -- Show Active OR Completed (Completed events are auto-set to is_active=false)
+                    (e.is_active = true) OR (e.event_end_date IS NOT NULL AND e.event_end_date < NOW())
+                    
+                WHEN filter_status = 'active' THEN 
+                    e.is_active = true AND (e.event_end_date IS NULL OR e.event_end_date >= NOW())
+                    
+                WHEN filter_status = 'open' THEN 
+                    e.is_active = true AND 
+                    e.registration_open = true AND
+                    (e.registration_start IS NULL OR e.registration_start <= NOW()) AND
+                    (e.registration_end IS NULL OR e.registration_end > NOW())
+                    
+                WHEN filter_status = 'completed' THEN 
+                    (e.event_end_date IS NOT NULL AND e.event_end_date < NOW())
+                    
+                ELSE 
+                    true -- Fallback
+            END
+        )
+        
+    ORDER BY 
+        CASE 
+            WHEN (e.event_end_date IS NOT NULL AND e.event_end_date < NOW()) THEN 1 -- Completed last
+            ELSE 0 -- Active/Upcoming first
+        END ASC,
+        e.created_at DESC
+        
+    LIMIT limit_count
+    OFFSET offset_count;
+END;
+$$;
+
+-- [NEW] Get Upcoming Events (Optimized)
+CREATE OR REPLACE FUNCTION get_upcoming_events(limit_count INTEGER DEFAULT 3)
+RETURNS TABLE (
+    id UUID,
+    title TEXT,
+    description TEXT,
+    banner_url TEXT,
+    event_date TIMESTAMP WITH TIME ZONE,
+    event_end_date TIMESTAMP WITH TIME ZONE,
+    event_type TEXT,
+    registration_open BOOLEAN,
+    is_active BOOLEAN,
+    created_by UUID,
+    club_name TEXT,
+    club_logo_url TEXT
+) 
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        e.id,
+        e.title,
+        e.description,
+        e.banner_url,
+        e.event_date,
+        e.event_end_date,
+        e.event_type,
+        e.registration_open,
+        e.is_active,
+        e.created_by,
+        au.club_name,
+        au.club_logo_url
+    FROM events e
+    LEFT JOIN admin_users au ON e.created_by = au.user_id
+    WHERE 
+        e.is_active = true 
+        AND e.registration_open = true
+        AND (e.event_end_date IS NULL OR e.event_end_date > NOW())
+        AND (e.registration_start IS NULL OR e.registration_start <= NOW())
+    ORDER BY e.created_at DESC
+    LIMIT limit_count;
+END;
+$$;
+
 -- ====================================================================
 -- 4. ROW LEVEL SECURITY (RLS) POLICIES
 -- ====================================================================
@@ -275,6 +445,8 @@ CREATE POLICY "Admins can manage quiz questions" ON quiz_questions FOR ALL USING
 
 -- Quiz Attempts: Users read/write own, Admins read all
 CREATE POLICY "Users can view their own attempts" ON quiz_attempts FOR SELECT USING (auth.uid() = user_id);
+-- [UPDATE] Allow users to update their own in-progress attempts (e.g. saving answers constantly)
+CREATE POLICY "Users can update their own attempts" ON quiz_attempts FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can create their own attempts" ON quiz_attempts FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Admins can view all attempts" ON quiz_attempts FOR SELECT USING (public.get_admin_role() IS NOT NULL);
 
@@ -327,6 +499,8 @@ CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_participants_event_id ON participants(event_id);
 CREATE INDEX IF NOT EXISTS idx_participants_user_id ON participants(user_id);
 CREATE INDEX IF NOT EXISTS idx_participants_status ON participants(status);
+-- [NEW] Index for homepage filtering
+CREATE INDEX IF NOT EXISTS idx_events_dates_filtering ON events(is_active, registration_open, event_end_date, registration_start);
 
 -- [NEW] Composite Indexes for Query Optimization
 CREATE UNIQUE INDEX IF NOT EXISTS idx_participants_event_user ON participants(event_id, user_id);
@@ -348,3 +522,97 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ====================================================================
+-- 8. AUTOMATIC STATUS UPDATES (CRON & TRIGGERS)
+-- ====================================================================
+
+-- Function: Trigger to update status on row change
+CREATE OR REPLACE FUNCTION public.update_event_status_on_change()
+RETURNS TRIGGER AS $$
+DECLARE
+    now_ts TIMESTAMP WITH TIME ZONE := NOW();
+    new_registration_open BOOLEAN;
+    new_is_active BOOLEAN;
+BEGIN
+    -- Determine new registration_open status
+    IF NEW.registration_end IS NOT NULL AND NEW.registration_end < now_ts THEN
+        new_registration_open := false;
+    ELSE
+        new_registration_open := NEW.registration_open;
+    END IF;
+    
+    -- Determine new is_active status
+    IF NEW.event_end_date IS NOT NULL AND NEW.event_end_date < now_ts THEN
+        new_is_active := false;
+    ELSE
+        new_is_active := NEW.is_active;
+    END IF;
+    
+    -- Only update if values actually changed
+    IF new_registration_open != NEW.registration_open OR new_is_active != NEW.is_active THEN
+        NEW.registration_open := new_registration_open;
+        NEW.is_active := new_is_active;
+        NEW.updated_at := now_ts;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger definition
+DROP TRIGGER IF EXISTS trigger_update_event_status ON events;
+CREATE TRIGGER trigger_update_event_status
+    BEFORE INSERT OR UPDATE ON events
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_event_status_on_change();
+
+-- Function: Batch update all expired events (for Cron/RPC)
+CREATE OR REPLACE FUNCTION public.update_all_expired_events()
+RETURNS TABLE (
+    event_id UUID,
+    title TEXT,
+    registration_closed BOOLEAN,
+    event_deactivated BOOLEAN
+) AS $$
+DECLARE
+    now_ts TIMESTAMP WITH TIME ZONE := NOW();
+BEGIN
+    RETURN QUERY
+    WITH updated_events AS (
+        UPDATE events
+        SET 
+            registration_open = CASE 
+                WHEN registration_end IS NOT NULL AND registration_end < now_ts THEN false 
+                ELSE registration_open 
+            END,
+            is_active = CASE 
+                WHEN event_end_date IS NOT NULL AND event_end_date < now_ts THEN false 
+                ELSE is_active 
+            END,
+            updated_at = CASE 
+                WHEN (registration_end IS NOT NULL AND registration_end < now_ts AND registration_open = true)
+                   OR (event_end_date IS NOT NULL AND event_end_date < now_ts AND is_active = true)
+                THEN now_ts
+                ELSE updated_at
+            END
+        WHERE 
+            (registration_end IS NOT NULL AND registration_end < now_ts AND registration_open = true)
+            OR (event_end_date IS NOT NULL AND event_end_date < now_ts AND is_active = true)
+        RETURNING 
+            id,
+            events.title,
+            (registration_end IS NOT NULL AND registration_end < now_ts) as registration_was_closed,
+            (event_end_date IS NOT NULL AND event_end_date < now_ts) as event_was_deactivated
+    )
+    SELECT 
+        updated_events.id,
+        updated_events.title,
+        updated_events.registration_was_closed,
+        updated_events.event_was_deactivated
+    FROM updated_events;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.update_all_expired_events() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_all_expired_events() TO service_role;
