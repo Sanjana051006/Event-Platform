@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, FileText, Eye, Users, Trophy, Clock } from 'lucide-react'
+import { ArrowLeft, FileText, Eye, Users, Trophy, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { format } from 'date-fns'
 import { motion } from 'framer-motion'
 import LastWordGradientText from '@/components/LastWordGradientText'
@@ -52,7 +52,9 @@ export default function QuizAttemptsClient({
   event, 
   attempts, 
   questions,
-  stats 
+  stats,
+  currentPage = 1,
+  totalPages = 1
 }) {
   const router = useRouter()
 
@@ -125,7 +127,7 @@ export default function QuizAttemptsClient({
         <StatsCard 
           icon={Clock} 
           title="Total Questions" 
-          value={questions.length} 
+          value={stats.totalQuestions} 
           colorClass="bg-purple-500/20 text-purple-400"
         />
       </motion.div>
@@ -205,6 +207,35 @@ export default function QuizAttemptsClient({
             </Table>
           </CardContent>
         </Card>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`?page=${currentPage - 1}`)}
+              disabled={currentPage <= 1}
+              className="border-zinc-800 hover:bg-zinc-800"
+            >
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Previous
+            </Button>
+            <span className="text-sm text-zinc-400 min-w-[100px] text-center">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`?page=${currentPage + 1}`)}
+              disabled={currentPage >= totalPages}
+              className="border-zinc-800 hover:bg-zinc-800"
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        )}
       </motion.div>
 
       {/* Details Dialog */}
