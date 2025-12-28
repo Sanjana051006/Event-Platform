@@ -12,7 +12,7 @@ A modern, full-featured website for managing student club hackathons and tech ev
 - 📧 Email notifications for registration approval/rejection
 - 💬 Contact form to reach organizers
 - 📱 Fully responsive design
-- 💳 **Secure Payments** - Pay for paid events seamlessly via Razorpay.
+- 💳 **Secure Payments** -- Pay for paid events seamlessly via Razorpay.
 
 ### For Admins
 - 🔐 Secure authentication (Supabase Auth)
